@@ -241,4 +241,4 @@ sentinel/
 
 ---
 
-Built in one day. Every layer from scratch.
+ Every layer from scratch.
