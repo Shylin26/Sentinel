@@ -23,9 +23,9 @@ def send(payload: dict, sign: bool = True, fake: bool = False):
     })
     try:
         with urllib.request.urlopen(req) as r:
-            print(f"  ✓ {r.status} {json.loads(r.read())}")
+            print(f"  {r.status} {json.loads(r.read())}")
     except urllib.error.HTTPError as e:
-        print(f"  ✗ {e.code} {e.reason}")
+        print(f"  {e.code} {e.reason}")
 
 payload = {
     "repository": {"full_name": "parishachauhan/sentinel-test"},
@@ -40,4 +40,9 @@ send(payload, fake=True)
 
 print("Test 3 — no signature (should 401):")
 send(payload, sign=False)
-
+payload = {
+    "repository": {"full_name": "torvalds/linux"},
+    "after": "b85ea95d086471afb4ad062012a4d73cd328fa86",
+}
+print("Test 4 — real commit:")
+send(payload, sign=True)
