@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 import urllib.request
 from pathlib import Path
@@ -22,6 +23,24 @@ SEVERITY_KEYWORDS = {
     1: ["consider", "suggestion", "maybe", "could"],
     0: ["nit", "minor", "style", "rename", "typo"],
 }
+
+# Patterns that match real secrets — any example containing these gets dropped
+SECRET_PATTERNS = re.compile(
+    r'ghp_[A-Za-z0-9]{36}'                  # GitHub personal access token
+    r'|gho_[A-Za-z0-9]{36}'                 # GitHub OAuth token
+    r'|AIza[0-9A-Za-z\-_]{35}'             # Google API key
+    r'|ya29\.[0-9A-Za-z\-_]+'              # Google OAuth access token
+    r'|[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com'  # Google OAuth client ID
+    r'|sk_live_[0-9a-zA-Z]{24,}'           # Stripe live secret key
+    r'|rk_live_[0-9a-zA-Z]{24,}'           # Stripe restricted key
+    r'|AC[a-z0-9]{32}'                      # Twilio Account SID
+    r'|SK[a-z0-9]{32}'                      # Twilio API key
+    r'|sk-or-v1-[A-Za-z0-9]{64}'           # OpenRouter API key
+    r'|-----BEGIN (RSA |EC )?PRIVATE KEY'   # Private keys
+)
+
+def contains_secret(text: str) -> bool:
+    return bool(SECRET_PATTERNS.search(text))
 
 def infer_severity(comment):
     c = comment.lower()
@@ -73,6 +92,9 @@ def mine(target=5000):
                     body = c.get("body", "").strip()
                     diff_hunk = c.get("diff_hunk", "").strip()
                     if not body or not diff_hunk or len(body) < 15:
+                        continue
+                    # Skip any example that contains a real secret pattern
+                    if contains_secret(body) or contains_secret(diff_hunk):
                         continue
                     examples.append({
                         "diff_hunk": diff_hunk,
