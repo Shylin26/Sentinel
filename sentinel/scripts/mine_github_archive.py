@@ -44,7 +44,7 @@ def fetch(url):
         return json.loads(r.read())
 
 def get_repos(page=1):
-    url = f"https://api.github.com/search/repositories?q=stars:%3E1000+language:python&sort=updated&per_page=30&page={page}"
+    url = f"https://api.github.com/search/repositories?q=stars:%3E500&sort=updated&per_page=30&page={page}"
     return fetch(url)["items"]
 
 def get_review_comments(owner, repo):
@@ -99,4 +99,4 @@ def mine(target=5000):
     print(f"\nDone. {len(examples)} examples → {out_path}")
 
 if __name__ == "__main__":
-    mine(target=5000)
+    mine(target=50000)
