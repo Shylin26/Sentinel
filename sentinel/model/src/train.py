@@ -4,6 +4,10 @@ import torch.nn as nn
 from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 from transformer import SentinelTransformer, BPETokenizerWrapper
+import os
+
+# Optimize memory allocation on Apple Silicon (MPS)
+os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
@@ -91,7 +95,7 @@ def train():
     print(f"Batches per epoch: {len(loader)}")
     print("Starting training...\n")
 
-    for epoch in range(20):
+    for epoch in range(10):
         model.train()
         total_loss = 0
         severity_correct = 0
@@ -123,10 +127,16 @@ def train():
                       f"Loss: {loss.item():.4f} | "
                       f"Sev Acc: {severity_correct/total:.3f}")
 
+            if step % 50 == 0 and DEVICE.type == "mps" and hasattr(torch, "mps"):
+                torch.mps.empty_cache()
+
         scheduler.step()
         epoch_acc = severity_correct / total
         print(f"\nEpoch {epoch+1} done — Loss: {total_loss/len(loader):.4f} | "
               f"Severity Acc: {epoch_acc:.3f}")
+
+        if DEVICE.type == "mps" and hasattr(torch, "mps"):
+            torch.mps.empty_cache()
 
         torch.save({
             "epoch": epoch,
