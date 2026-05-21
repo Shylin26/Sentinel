@@ -22,13 +22,13 @@ build/
 htmlcov/
 
 # Data (raw/processed — too large for git)
-data/raw/
-data/processed/
+sentinel/data/raw/
+sentinel/data/processed/
 
 # Model checkpoints & artifacts
-model/checkpoints/
-model/src/*.model
-model/src/*.vocab
+sentinel/model/checkpoints/
+sentinel/model/src/*.model
+sentinel/model/src/*.vocab
 *.model
 *.vocab
 
