@@ -1,0 +1,38 @@
+groups:
+  - name: sentinel.rules
+    rules:
+      - alert: E2ELatencySLOBreach
+        expr: histogram_quantile(0.99, rate(sentinel_e2e_latency_seconds_bucket[5m])) > 2
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SENTINEL p99 latency SLO breach"
+          description: "p99 e2e latency is above 2s for more than 1 minute."
+
+      - alert: InferenceLatencyHigh
+        expr: histogram_quantile(0.99, rate(sentinel_inference_latency_seconds_bucket[5m])) > 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Inference p99 latency above 1s"
+          description: "Transformer forward pass p99 has exceeded 1s for 1 minute."
+
+      - alert: KafkaLagHigh
+        expr: sentinel_kafka_lag > 50
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka consumer lag spike"
+          description: "diff-chunks lag is above 50 — autoscaler may not be keeping up."
+
+      - alert: WebhookErrorRate
+        expr: rate(sentinel_webhook_received_total{status="kafka_error"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Webhook Kafka errors"
+          description: "Webhooks are failing to enqueue to Kafka."
