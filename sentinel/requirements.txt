@@ -1,0 +1,28 @@
+# SENTINEL — Python 3.11
+# Install: pip install -r requirements.txt
+
+# Web / serving
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+
+# Kafka
+kafka-python==2.0.2
+
+# ML
+torch==2.3.0
+sentencepiece==0.2.0
+
+# Observability
+prometheus-client==0.20.0
+
+# HTTP
+aiohttp==3.9.5
+
+# Containers (autoscaler)
+docker==7.1.0
+
+# Config
+python-dotenv==1.0.1
+
+# Redis (inference result cache)
+redis==5.0.4
