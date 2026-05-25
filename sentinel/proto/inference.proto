@@ -1,0 +1,28 @@
+syntax="proto3";
+package sentinel;
+service InferenceService{
+    rpc ReviewChunk(ChunkRequest) returns (ReviewResponse);
+}
+message ChunkRequest {
+  string repo            = 1;
+  string commit          = 2;
+  string filename        = 3;
+  string patch           = 4;
+  string idempotency_key = 5;
+  double received_at     = 6;
+  int32  chunk_index     = 7;
+}
+
+message ReviewResponse {
+  string repo            = 1;
+  string commit          = 2;
+  string filename        = 3;
+  int32  line            = 4;
+  string severity        = 5;
+  int32  severity_id     = 6;
+  string category        = 7;
+  string message         = 8;
+  double confidence      = 9;
+  string idempotency_key = 10;
+  double received_at     = 11;
+}
