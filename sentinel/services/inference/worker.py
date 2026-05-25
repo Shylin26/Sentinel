@@ -1,8 +1,10 @@
 import json
 import sys
+import time
 import torch
 from pathlib import Path
 from kafka import KafkaConsumer, KafkaProducer
+from prometheus_client import Histogram, start_http_server
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR / "model" / "src"))
@@ -32,6 +34,12 @@ MESSAGES = {
     "other":          "Review this section.",
 }
 
+inference_latency = Histogram(
+    "sentinel_inference_latency_seconds",
+    "Time spent on transformer forward pass",
+    buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0],
+)
+
 print("Loading model...")
 model = torch.jit.load(str(MODEL_PATH), map_location="cpu")
 model.eval()
@@ -46,17 +54,19 @@ consumer = KafkaConsumer(
     enable_auto_commit=True,
     value_deserializer=lambda x: json.loads(x.decode("utf-8")),
 )
-
 producer = KafkaProducer(
     bootstrap_servers="127.0.0.1:9092",
     value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     key_serializer=lambda k: k.encode("utf-8"),
 )
 
+
 def run_inference(patch: str) -> dict:
     ids, mask = tokenizer.batch_encode([patch])
+    t0 = time.perf_counter()
     with torch.no_grad():
         out = model(ids, mask)
+    inference_latency.observe(time.perf_counter() - t0)
     sev_idx = out["severity"].argmax(-1).item()
     cat_idx = out["category"].argmax(-1).item()
     sev_conf = torch.softmax(out["severity"], dim=-1).max().item()
@@ -70,17 +80,16 @@ def run_inference(patch: str) -> dict:
         "confidence": round((sev_conf + cat_conf) / 2, 3),
     }
 
+
 def process(msg: dict):
     repo = msg["repo"]
     commit = msg["commit"]
     filename = msg["filename"]
     patch = msg["patch"]
     idempotency_key = msg["idempotency_key"]
-
-    print(f"Inferring {repo}@{commit[:7]} — {filename}...")
-
+    received_at = msg.get("received_at")
+    print(f"Inferring {repo}@{commit[:7]} - {filename}...")
     result = run_inference(patch)
-
     review = {
         "repo": repo,
         "commit": commit,
@@ -92,12 +101,15 @@ def process(msg: dict):
         "message": result["message"],
         "confidence": result["confidence"],
         "idempotency_key": idempotency_key,
+        "received_at": received_at,
     }
-
     producer.send("reviews", key=repo, value=review)
     producer.flush()
-    print(f"  → {result['severity']} | {result['category']} | confidence {result['confidence']}")
+    print(f"  -> {result['severity']} | {result['category']} | confidence {result['confidence']}")
 
+
+print("Inference worker - metrics on :9101")
+start_http_server(9101)
 print("Inference worker running...")
 for message in consumer:
     process(message.value)
