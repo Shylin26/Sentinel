@@ -5,7 +5,7 @@
 git push → webhook → kafka → diff extractor → gRPC → inference server → github comment
                                                               ↑
                                                   transformer trained from scratch
-                                                  on 2M real PR review comments
+                                                  on 5,001 labeled PR review comments (pipeline scales to 2M+ via GitHub Archive miner)
 ```
 
 ---
@@ -60,7 +60,7 @@ This is not a wrapper around an LLM API. Every component is yours: the model, th
 
 ## The Model
 
-Trained from scratch on ~5,000 real GitHub PR review comments (scalable to 2M+).
+Trained from scratch on 5,001 labeled PR review comments. The data pipeline mines 2M+ examples from GitHub Archive — run scripts/mine_github_archive.py to scale up.
 
 ```
 Architecture:
