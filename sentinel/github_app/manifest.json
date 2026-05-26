@@ -1,0 +1,24 @@
+{
+  "name": "SENTINEL Code Review",
+  "url": "https://nickname-agency-ninja.ngrok-free.app",
+  "hook_attributes": {
+    "url": "https://nickname-agency-ninja.ngrok-free.app/webhook",
+    "active": true
+  },
+  "redirect_url": "https://nickname-agency-ninja.ngrok-free.app/github/callback",
+  "callback_urls": [
+    "https://nickname-agency-ninja.ngrok-free.app/github/callback"
+  ],
+  "setup_url": "https://nickname-agency-ninja.ngrok-free.app/github/setup",
+  "description": "Real-time ML-powered code review on every push. Under 2 seconds.",
+  "public": true,
+  "default_events": [
+    "push",
+    "pull_request"
+  ],
+  "default_permissions": {
+    "contents": "read",
+    "pull_requests": "write",
+    "statuses": "write"
+  }
+}
