@@ -163,6 +163,8 @@ Live Grafana dashboard at `localhost:3000`. Four rows: Traffic, Latency, Compute
 
 Full report: [BENCHMARK.md](BENCHMARK.md)
 
+![SENTINEL Grafana Dashboard](docs/grafana-dashboard.png)
+
 ---
 
 ## Chaos Test Suite
