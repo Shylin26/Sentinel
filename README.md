@@ -77,22 +77,18 @@ Training:
               Note: dataset skewed toward "suggestion" (74.3% of labels).
               Bug detection: 46.7% | Critical detection: 42.1%
               Known limitation: class imbalance. Fix: class weights or more balanced mining.
-  Eval:       python3 model/src/evaluate.py  — runs full confusion matrixaccuracy
+  Eval:       python3 model/src/evaluate.py  — runs full confusion matrix
   Export:     TorchScript (.pt) — loads in <200ms cold start
-```
 
-Output per diff chunk:
-```json
-{
-  "line": 0,
-  "severity": "bug",
-  "category": "security",
-  "message": "Potential security vulnerability — review immediately.",
-  "confidence": 0.981
-}
-```
+Confusion matrix (held-out test set, 1,001 examples):
+  Class         Accuracy    Count
+  nit           58.1%       105
+  suggestion    97.4%       744
+  bug           46.7%       45
+  critical      42.1%       107
 
----
+  Known limitation: 74.3% of labels are "suggestion" — model is biased toward majority class.
+  Fix: class weights or mine more balanced data via scripts/mine_github_archive.py
 
 ## Kafka Pipeline
 
