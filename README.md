@@ -73,7 +73,11 @@ Training:
   Device:     Apple Silicon MPS backend
   Optimizer:  AdamW + CosineAnnealingLR
   Loss:       0.5 * severity_loss + 0.5 * category_loss
-  Result:     97%+ severity classification accuracy
+  Result:     85.1% severity accuracy on held-out test set (1,001 examples, 80/20 split)
+              Note: dataset skewed toward "suggestion" (74.3% of labels).
+              Bug detection: 46.7% | Critical detection: 42.1%
+              Known limitation: class imbalance. Fix: class weights or more balanced mining.
+  Eval:       python3 model/src/evaluate.py  — runs full confusion matrixaccuracy
   Export:     TorchScript (.pt) — loads in <200ms cold start
 ```
 
