@@ -1,13 +1,4 @@
-# SENTINEL — single command setup
-# Usage:
-#   make infra     start Kafka + Redis + Prometheus + Grafana
-#   make topics    create Kafka topics
-#   make run       start all 5 services (background)
-#   make stop      kill all services
-#   make test      run chaos test suite
-#   make load      run 60s load test (50 users)
-#   make logs      tail all service logs
-#   make status    show what's running
+
 
 PYTHON = .venv/bin/python3
 SENTINEL = sentinel
@@ -55,6 +46,7 @@ stop:
 	@echo "Done."
 
 test:
+	cd $(SENTINEL) && $(PYTHON) -m pytest tests/test_webhook.py tests/test_publisher.py tests/test_diff_extractor.py -v
 	cd $(SENTINEL) && $(PYTHON) tests/chaos_test.py
 
 load:
