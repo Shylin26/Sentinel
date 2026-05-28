@@ -1,6 +1,6 @@
 
 
-PYTHON = .venv/bin/python3
+PYTHON = /Users/parishachauhan/SENTINEL/.venv/bin/python3
 SENTINEL = sentinel
 
 .PHONY: infra topics run stop test load logs status
