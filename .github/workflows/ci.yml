@@ -1,0 +1,61 @@
+name: SENTINEL CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install \
+            fastapi==0.111.0 \
+            uvicorn==0.29.0 \
+            kafka-python==2.0.2 \
+            prometheus-client==0.20.0 \
+            python-dotenv==1.0.1 \
+            redis==5.0.4 \
+            grpcio==1.62.0 \
+            grpcio-tools==1.62.0 \
+            pytest==8.4.2 \
+            httpx==0.28.1
+
+      - name: Compile gRPC stubs
+        run: |
+          cd sentinel
+          python -m grpc_tools.protoc \
+            -I proto \
+            --python_out=proto \
+            --grpc_python_out=proto \
+            proto/inference.proto
+
+      - name: Run unit tests
+        run: |
+          cd sentinel
+          pytest tests/test_webhook.py tests/test_publisher.py tests/test_diff_extractor.py -v
+
+      - name: Check syntax on all service files
+        run: |
+          for f in \
+            sentinel/services/webhook/main.py \
+            sentinel/services/kafka/diff_extractor.py \
+            sentinel/services/inference/server.py \
+            sentinel/services/inference/worker.py \
+            sentinel/services/publisher/result_publisher.py \
+            sentinel/services/autoscaler/autoscaler.py; do
+            python -c "import ast; ast.parse(open('$f').read()); print('OK: $f')"
+          done
