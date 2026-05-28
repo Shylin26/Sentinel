@@ -41,6 +41,7 @@ This is not a wrapper around an LLM API. Every component is yours: the model, th
 │ Docker SDK +    │     │ Prometheus +     │     │ Idempotency      │
 │ Kafka lag watch │     │ Grafana dashboard│     │ 24hr TTL         │
 └─────────────────┘     └──────────────────┘     └──────────────────┘
+![SENTINEL Architecture](docs/architecture.svg)
 ```
 
 **Eight services. Every one independently deployable, independently failable.**
