@@ -1,4 +1,5 @@
 # SENTINEL
+![CI](https://github.com/Shylin26/Sentinel/actions/workflows/ci.yml/badge.svg)
 ### Real-time ML-powered code review. Every git push. Under 2 seconds.
 
 ```
