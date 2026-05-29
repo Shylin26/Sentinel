@@ -27,19 +27,29 @@ HEADERS = {
 channel = grpc.insecure_channel(os.environ.get("INFERENCE_GRPC_HOST", "127.0.0.1:50051"))
 stub    = inference_pb2_grpc.InferenceServiceStub(channel)
 
-consumer = KafkaConsumer(
-    "push-events",
-    bootstrap_servers="KAFKA_BOOTSTRAP",
-    group_id="diff-extractors-v4",
-    auto_offset_reset="earliest",
-    enable_auto_commit=True,
-    value_deserializer=lambda x: json.loads(x.decode("utf-8")),
-)
-producer = KafkaProducer(
-    bootstrap_servers="KAFKA_BOOTSTRAP",
-    value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-    key_serializer=lambda k: k.encode("utf-8"),
-)
+def create_kafka_clients():
+    while True:
+        try:
+            c = KafkaConsumer(
+                "push-events",
+                bootstrap_servers=KAFKA_BOOTSTRAP,
+                group_id="diff-extractors-v4",
+                auto_offset_reset="earliest",
+                enable_auto_commit=True,
+                value_deserializer=lambda x: json.loads(x.decode("utf-8")),
+            )
+            p = KafkaProducer(
+                bootstrap_servers=KAFKA_BOOTSTRAP,
+                value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+                key_serializer=lambda k: k.encode("utf-8"),
+            )
+            print("Kafka connected.")
+            return c, p
+        except Exception as e:
+            print(f"Kafka not ready ({e}) — retrying in 5s...")
+            time.sleep(5)
+
+consumer, producer = create_kafka_clients()
 
 
 def fetch_diff(repo, commit):
