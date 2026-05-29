@@ -18,13 +18,13 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-MAX_RETRIES = 3   # send to DLQ after this many failures
+MAX_RETRIES = 3
 
 # Prometheus metrics
 review_posted = Counter(
     "sentinel_review_posted_total",
     "Total reviews posted to GitHub",
-    ["repo", "severity", "status"],  # status: posted | skipped | failed | duplicate | dlq
+    ["repo", "severity", "status"],
 )
 e2e_latency = Histogram(
     "sentinel_e2e_latency_seconds",
@@ -43,7 +43,7 @@ except Exception:
     CACHE_AVAILABLE = False
     print("Redis unavailable — idempotency cache disabled.")
 
-CACHE_TTL = 86400  # 24 hours
+CACHE_TTL = 86400
 
 consumer = KafkaConsumer(
     "reviews",
@@ -77,8 +77,39 @@ def format_comment(review: dict) -> str:
         f"File: `{review['filename']}`*"
     )
 
+def get_pr_for_commit(repo: str, commit: str):
+    """Find an open PR that contains this commit."""
+    url = f"https://api.github.com/repos/{repo}/commits/{commit}/pulls"
+    req = urllib.request.Request(url, headers={
+        **HEADERS,
+        "Accept": "application/vnd.github.groot-preview+json",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            prs = json.loads(r.read())
+            return prs[0] if prs else None
+    except Exception:
+        return None
+
+
+def post_pr_review_comment(repo: str, pr_number: int, commit: str,
+                            filename: str, line: int, comment: str):
+    """Post an inline review comment on a PR diff."""
+    url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}/comments"
+    body = json.dumps({
+        "body": comment,
+        "commit_id": commit,
+        "path": filename,
+        "line": max(line, 1),
+        "side": "RIGHT",
+    }).encode()
+    req = urllib.request.Request(url, data=body, headers=HEADERS, method="POST")
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return json.loads(r.read())
+
 
 def post_commit_comment(repo: str, commit: str, comment: str):
+    """Fallback: post a commit-level comment."""
     url = f"https://api.github.com/repos/{repo}/commits/{commit}/comments"
     body = json.dumps({"body": comment}).encode()
     req = urllib.request.Request(url, data=body, headers=HEADERS, method="POST")
@@ -98,7 +129,6 @@ def mark_posted(idempotency_key: str):
 
 
 def send_to_dlq(review: dict, reason: str):
-    """Send a review to the dead letter queue after MAX_RETRIES failures."""
     dlq_msg = {**review, "dlq_reason": reason, "dlq_at": time.time()}
     producer.send("reviews-dlq", key=review["repo"], value=dlq_msg)
     producer.flush()
@@ -111,11 +141,12 @@ def process(review: dict):
     commit      = review["commit"]
     severity    = review["severity"]
     confidence  = review["confidence"]
+    filename    = review["filename"]
+    line        = review.get("line", 1)
     received_at = review.get("received_at")
     ikey        = review.get("idempotency_key", "")
     retries     = review.get("_retries", 0)
 
-    # Idempotency check
     if is_duplicate(ikey):
         print(f"  Duplicate — skipping {ikey[:40]}...")
         review_posted.labels(repo=repo, severity=severity, status="duplicate").inc()
@@ -128,13 +159,17 @@ def process(review: dict):
 
     comment = format_comment(review)
     print(f"Posting to {repo}@{commit[:7]} — {severity}...")
+
     try:
+        # Try inline PR comment first
+        # Post as commit comment (inline PR requires exact diff position)
         result = post_commit_comment(repo, commit, comment)
+        print(f"  Posted commit comment id {result['id']}")
+
         mark_posted(ikey)
         if received_at:
             e2e_latency.observe(time.time() - received_at)
         review_posted.labels(repo=repo, severity=severity, status="posted").inc()
-        print(f"  Posted comment id {result['id']}")
 
     except urllib.error.HTTPError as e:
         retries += 1
@@ -142,7 +177,6 @@ def process(review: dict):
         if retries >= MAX_RETRIES:
             send_to_dlq(review, f"HTTP {e.code} {e.reason}")
         else:
-            # Re-enqueue with incremented retry count
             retry_msg = {**review, "_retries": retries}
             producer.send("reviews", key=repo, value=retry_msg)
             producer.flush()
