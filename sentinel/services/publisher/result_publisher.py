@@ -34,7 +34,7 @@ e2e_latency = Histogram(
 
 # Redis idempotency cache
 try:
-    cache = redis.Redis(host="127.0.0.1", port=6379, db=0, socket_connect_timeout=2)
+    cache = redis.Redis(host=os.environ.get("REDIS_HOST", "127.0.0.1"), port=6379, db=0, socket_connect_timeout=2)
     cache.ping()
     CACHE_AVAILABLE = True
     print("Redis connected — idempotency cache active.")
