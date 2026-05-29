@@ -23,8 +23,10 @@ webhook_received = Counter(
 )
 # ---------------------------------------------------------------------------
 
+KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092")
+
 producer = KafkaProducer(
-    bootstrap_servers="127.0.0.1:9092",
+    bootstrap_servers=KAFKA_BOOTSTRAP,
     value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     key_serializer=lambda k: k.encode("utf-8"),
     acks="all",
