@@ -58,7 +58,7 @@ print("Model loaded.")
 
 consumer = KafkaConsumer(
     "diff-chunks",
-    bootstrap_servers="127.0.0.1:9092",
+    bootstrap_servers=os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092"),
     group_id="inference-workers",
     auto_offset_reset="earliest",
     enable_auto_commit=True,
@@ -67,7 +67,7 @@ consumer = KafkaConsumer(
     consumer_timeout_ms=BATCH_WINDOW_MS,
 )
 producer = KafkaProducer(
-    bootstrap_servers="127.0.0.1:9092",
+    bootstrap_servers=os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092"),
     value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     key_serializer=lambda k: k.encode("utf-8"),
 )

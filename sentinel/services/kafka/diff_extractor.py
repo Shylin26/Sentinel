@@ -9,7 +9,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
+KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092")
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR / "proto"))
 
@@ -24,19 +24,19 @@ HEADERS = {
 }
 
 # gRPC channel to inference server
-channel = grpc.insecure_channel("127.0.0.1:50051")
+channel = grpc.insecure_channel(os.environ.get("INFERENCE_GRPC_HOST", "127.0.0.1:50051"))
 stub    = inference_pb2_grpc.InferenceServiceStub(channel)
 
 consumer = KafkaConsumer(
     "push-events",
-    bootstrap_servers="127.0.0.1:9092",
+    bootstrap_servers="KAFKA_BOOTSTRAP",
     group_id="diff-extractors-v4",
     auto_offset_reset="earliest",
     enable_auto_commit=True,
     value_deserializer=lambda x: json.loads(x.decode("utf-8")),
 )
 producer = KafkaProducer(
-    bootstrap_servers="127.0.0.1:9092",
+    bootstrap_servers="KAFKA_BOOTSTRAP",
     value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     key_serializer=lambda k: k.encode("utf-8"),
 )

@@ -47,14 +47,14 @@ CACHE_TTL = 86400
 
 consumer = KafkaConsumer(
     "reviews",
-    bootstrap_servers="127.0.0.1:9092",
+    bootstrap_servers=os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092"),
     group_id="result-publishers",
     auto_offset_reset="earliest",
     enable_auto_commit=True,
     value_deserializer=lambda x: json.loads(x.decode("utf-8")),
 )
 producer = KafkaProducer(
-    bootstrap_servers="127.0.0.1:9092",
+    bootstrap_servers=os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092"),
     value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     key_serializer=lambda k: k.encode("utf-8"),
 )

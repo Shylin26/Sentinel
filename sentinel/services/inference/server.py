@@ -1,5 +1,7 @@
 import sys
 import time
+import json
+import urllib.request
 import torch
 import grpc
 from pathlib import Path
@@ -14,9 +16,11 @@ from transformer import BPETokenizerWrapper
 import inference_pb2
 import inference_pb2_grpc
 
-MODEL_PATH    = ROOT_DIR / "model/checkpoints/sentinel.pt"
+MODEL_PATH     = ROOT_DIR / "model/checkpoints/sentinel.pt"
 TOKENIZER_PATH = ROOT_DIR / "model/src/sentinel_bpe.model"
-GRPC_PORT     = 50051
+GRPC_PORT      = 50051
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
+OLLAMA_MODEL   = "llama3.1:8b"
 
 SEVERITIES = ["nit", "suggestion", "bug", "critical"]
 CATEGORIES = [
@@ -24,7 +28,9 @@ CATEGORIES = [
     "error_handling", "testing", "documentation", "complexity",
     "duplication", "typing", "other"
 ]
-MESSAGES = {
+
+# Fallback messages if Ollama is unavailable
+FALLBACK_MESSAGES = {
     "style":          "Consider reformatting for consistency.",
     "naming":         "Variable or function name could be more descriptive.",
     "logic":          "Potential logic error — review this block carefully.",
@@ -53,6 +59,36 @@ tokenizer = BPETokenizerWrapper(str(TOKENIZER_PATH))
 print("Model loaded.")
 
 
+def generate_explanation(patch: str, severity: str, category: str) -> str:
+    """Call Ollama to generate a specific explanation for the code issue."""
+    prompt = (
+        f"You are a senior code reviewer. A ML model classified this code diff as "
+        f"a {severity.upper()} severity {category} issue.\n\n"
+        f"Code diff:\n```\n{patch[:500]}\n```\n\n"
+        f"Write ONE specific sentence explaining exactly what the problem is and how to fix it. "
+        f"Be concrete, reference the actual code. No preamble, no bullet points, just the sentence."
+    )
+    try:
+        body = json.dumps({
+            "model": OLLAMA_MODEL,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0.3, "num_predict": 80},
+        }).encode()
+        req = urllib.request.Request(
+            OLLAMA_URL,
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=8) as r:
+            result = json.loads(r.read())
+            return result.get("response", "").strip()
+    except Exception as e:
+        print(f"  Ollama unavailable ({e}) — using fallback message")
+        return FALLBACK_MESSAGES.get(category, "Review this section.")
+
+
 class InferenceServicer(inference_pb2_grpc.InferenceServiceServicer):
 
     def ReviewChunk(self, request, context):
@@ -62,26 +98,31 @@ class InferenceServicer(inference_pb2_grpc.InferenceServiceServicer):
             out = model(ids, mask)
         inference_latency.observe(time.perf_counter() - t0)
 
-        sev_probs = torch.softmax(out["severity"], dim=-1)
-        cat_probs = torch.softmax(out["category"],  dim=-1)
-        sev_idx   = sev_probs[0].argmax().item()
-        cat_idx   = cat_probs[0].argmax().item()
-        sev_conf  = sev_probs[0].max().item()
-        cat_conf  = cat_probs[0].max().item()
-        category  = CATEGORIES[cat_idx]
+        sev_probs  = torch.softmax(out["severity"], dim=-1)
+        cat_probs  = torch.softmax(out["category"],  dim=-1)
+        sev_idx    = sev_probs[0].argmax().item()
+        cat_idx    = cat_probs[0].argmax().item()
+        sev_conf   = sev_probs[0].max().item()
+        cat_conf   = cat_probs[0].max().item()
+        severity   = SEVERITIES[sev_idx]
+        category   = CATEGORIES[cat_idx]
         confidence = round((sev_conf + cat_conf) / 2, 3)
 
-        print(f"  gRPC: {request.repo}@{request.commit[:7]} | {SEVERITIES[sev_idx]} | {category} | conf {confidence}")
+        # Generate specific explanation via Ollama
+        message = generate_explanation(request.patch, severity, category)
+
+        print(f"  gRPC: {request.repo}@{request.commit[:7]} | {severity} | {category} | conf {confidence}")
+        print(f"  msg: {message[:80]}...")
 
         return inference_pb2.ReviewResponse(
             repo            = request.repo,
             commit          = request.commit,
             filename        = request.filename,
             line            = request.chunk_index * 20,
-            severity        = SEVERITIES[sev_idx],
+            severity        = severity,
             severity_id     = sev_idx,
             category        = category,
-            message         = MESSAGES[category],
+            message         = message,
             confidence      = confidence,
             idempotency_key = request.idempotency_key,
             received_at     = request.received_at,

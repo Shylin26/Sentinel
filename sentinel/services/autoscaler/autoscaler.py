@@ -21,7 +21,7 @@ last_scale_time = 0
 
 def get_kafka_lag() -> int:
     consumer = KafkaConsumer(
-        bootstrap_servers="127.0.0.1:9092",
+        bootstrap_servers=os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092"),
         group_id="lag-checker",
         enable_auto_commit=False,
     )
