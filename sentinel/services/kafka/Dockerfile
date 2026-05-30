@@ -1,16 +1,16 @@
 FROM python:3.9-slim
-
 WORKDIR /app
-
+RUN pip install --no-cache-dir torch==2.3.0 --extra-index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir \
-    kafka-python==2.0.2 \
+    numpy \
+    sentencepiece==0.2.0 \
     grpcio==1.62.0 \
     grpcio-tools==1.62.0 \
-    python-dotenv==1.0.1
-
+    prometheus-client==0.20.0
 COPY proto/ proto/
-COPY services/kafka/diff_extractor.py services/kafka/diff_extractor.py
-
+COPY model/src/ model/src/
+COPY model/checkpoints/sentinel.pt model/checkpoints/sentinel.pt
+COPY services/inference/server.py services/inference/server.py
 RUN python -m grpc_tools.protoc -I proto --python_out=proto --grpc_python_out=proto proto/inference.proto
-
-CMD ["python3", "services/kafka/diff_extractor.py"]
+EXPOSE 50051 9101
+CMD ["python3", "-u", "services/inference/server.py"]
